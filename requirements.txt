@@ -1,2 +1,4 @@
 python-dotenv
 openrouter
+sentence-transformers
+qdrant-client
