@@ -1,4 +1,5 @@
 from llm.openrouter_client import OpenRouterClient
+from session.session_manager import SessionManager
 
 
 SYSTEM_PROMPT = """
@@ -12,19 +13,21 @@ def main():
 
     llm = OpenRouterClient()
 
-    messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT
-        }
-    ]
+    # For now, we use a fixed user ID.
+    # Later this will come from authentication/user management.
+    user_id = "user_001"
+
+    session_manager = SessionManager(user_id)
 
     print("=" * 50)
     print("       LONG-TERM MEMORY CHATBOT")
-    print("             Module 1")
     print("=" * 50)
 
-    print("\nType /exit to quit.\n")
+    print(f"\nUser ID: {user_id}")
+    print(f"Session ID: {session_manager.get_session_id()}")
+
+    print("\nType /newsession to start a new session.")
+    print("Type /exit to quit.\n")
 
     while True:
 
@@ -33,14 +36,38 @@ def main():
         if not user_input:
             continue
 
+        # Exit
         if user_input.lower() == "/exit":
             print("\nGoodbye!")
             break
 
-        messages.append({
-            "role": "user",
-            "content": user_input
-        })
+        # Create a new session
+        if user_input.lower() == "/newsession":
+
+            session_id = session_manager.create_session()
+
+            print(f"\n✓ New session created.")
+            print(f"Session ID: {session_id}\n")
+
+            continue
+
+        # Store user message
+        session_manager.add_message(
+            role="user",
+            content=user_input
+        )
+
+        # Build messages for LLM
+        messages = [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+            }
+        ]
+
+        messages.extend(
+            session_manager.get_messages()
+        )
 
         try:
 
@@ -48,14 +75,17 @@ def main():
 
             print(f"\nBot: {response}\n")
 
-            messages.append({
-                "role": "assistant",
-                "content": response
-            })
+            # Store assistant response
+            session_manager.add_message(
+                role="assistant",
+                content=response
+            )
 
         except Exception as e:
 
-            print(f"\nError communicating with OpenRouter: {e}\n")
+            print(
+                f"\nError communicating with OpenRouter: {e}\n"
+            )
 
 
 if __name__ == "__main__":
