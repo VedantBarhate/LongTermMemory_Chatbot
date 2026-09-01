@@ -1,6 +1,33 @@
 from llm.openrouter_client import OpenRouterClient
 from session.session_manager import SessionManager
 
+def print_sessions(session_manager):
+    sessions = session_manager.list_sessions()
+    print("\nAvailable sessions:")
+    for session in sessions:
+        session_id = session["session_id"]
+        message_count = len(session["messages"])
+        current = (" ← current" if session_id == session_manager.current_session_id else "")
+        print(
+            f"  {session_id} | "
+            f"{message_count} messages"
+            f"{current}"
+        )
+
+def print_history(session_manager):
+    history = session_manager.get_history()
+    if not history:
+        print("\nNo messages in this session.")
+        return
+    print("\n--- Conversation History ---")
+
+    for message in history:
+        role = message["role"].upper()
+        print(
+            f"\n{role}: "
+            f"{message['content']}"
+        )
+
 
 SYSTEM_PROMPT = """
 You are a helpful, general-purpose AI assistant.
@@ -10,83 +37,132 @@ Answer the user's questions clearly and accurately.
 
 
 def main():
-
+    session_manager = SessionManager()
     llm = OpenRouterClient()
 
-    # For now, we use a fixed user ID.
-    # Later this will come from authentication/user management.
-    user_id = "user_001"
+    print("\n================================")
+    print("       Long-Term Memory Chatbot")
+    print("================================")
 
-    session_manager = SessionManager(user_id)
+    print(
+        f"\nCurrent session: "
+        f"{session_manager.current_session_id}"
+    )
 
-    print("=" * 50)
-    print("       LONG-TERM MEMORY CHATBOT")
-    print("=" * 50)
-
-    print(f"\nUser ID: {user_id}")
-    print(f"Session ID: {session_manager.get_session_id()}")
-
-    print("\nType /newsession to start a new session.")
-    print("Type /exit to quit.\n")
+    print(
+        "\nCommands:"
+        "\n  /new"
+        "\n  /sessions"
+        "\n  /use <session_id>"
+        "\n  /current"
+        "\n  /history"
+        "\n  /delete <session_id>"
+        "\n  /exit"
+    )
 
     while True:
+        try:
+            user_input = input(
+                "\nYou: "
+            ).strip()
 
-        user_input = input("You: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nExiting...")
+            break
 
         if not user_input:
             continue
 
-        # Exit
-        if user_input.lower() == "/exit":
-            print("\nGoodbye!")
+        if user_input == "/exit":
+
             break
 
-        # Create a new session
-        if user_input.lower() == "/newsession":
-
-            session_id = session_manager.create_session()
-
-            print(f"\n✓ New session created.")
-            print(f"Session ID: {session_id}\n")
-
-            continue
-
-        # Store user message
-        session_manager.add_message(
-            role="user",
-            content=user_input
-        )
-
-        # Build messages for LLM
-        messages = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            }
-        ]
-
-        messages.extend(
-            session_manager.get_messages()
-        )
-
-        try:
-
-            response = llm.generate_response(messages)
-
-            print(f"\nBot: {response}\n")
-
-            # Store assistant response
-            session_manager.add_message(
-                role="assistant",
-                content=response
+        elif user_input == "/new":
+            session_id = (
+                session_manager.create_session()
             )
-
-        except Exception as e:
 
             print(
-                f"\nError communicating with OpenRouter: {e}\n"
+                f"\nNew session created: "
+                f"{session_id}"
             )
+            continue
 
+
+        elif user_input == "/sessions":
+            print_sessions(session_manager)
+            continue
+
+        elif user_input.startswith("/use "):
+            session_id = user_input[
+                len("/use "):
+            ].strip()
+            if session_manager.switch_session(session_id):
+                print(
+                    f"\nSwitched to session "
+                    f"{session_id}"
+                )
+            else:
+                print(
+                    f"\nSession '{session_id}' "
+                    f"does not exist."
+                )
+            continue
+
+        elif user_input == "/current":
+            print(
+                f"\nCurrent session: "
+                f"{session_manager.current_session_id}"
+            )
+            continue
+
+        elif user_input == "/history":
+            print_history(
+                session_manager
+            )
+            continue
+
+        elif user_input.startswith("/delete "):
+            session_id = user_input[
+                len("/delete "):
+            ].strip()
+            if session_manager.delete_session(session_id):
+                print(
+                    f"\nDeleted session "
+                    f"{session_id}"
+                )
+                print(
+                    f"Current session: "
+                    f"{session_manager.current_session_id}"
+                )
+            else:
+                print(
+                    f"\nSession '{session_id}' "
+                    f"does not exist."
+                )
+            continue
+
+        # NORMAL ONES
+        session_manager.add_message(
+            "user",
+            user_input
+        )
+
+        history = session_manager.get_history()
+
+        llm_messages = [
+            {
+                "role": message["role"],
+                "content": message["content"]
+            }
+            for message in history
+        ]
+
+        response = llm.generate_response(llm_messages)
+        print(f"\nAssistant: {response}")
+        session_manager.add_message("assistant", response)
+
+    print("\nGoodbye!")
 
 if __name__ == "__main__":
     main()
