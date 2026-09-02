@@ -45,6 +45,9 @@ Required format:
 Allowed types:
 profile, preference, interest, skill, project, goal, habit, other
 
+Importance range [0.0, 1.0]
+Confidence range [0.0, 1.0]
+
 If there is nothing worth remembering:
 
 {
