@@ -116,6 +116,7 @@ def main():
         "\n  /memories"
         "\n  /forget <memory_id>"
         "\n  /memory_mode <AUTO|ASK|DISABLED>"
+        "\n  /clear_memory"
         "\n  /exit"
     )
 
@@ -206,6 +207,24 @@ def main():
                 print(f"\nInvalid memory mode: {error}")
 
             continue
+
+        
+        elif user_input == "/clear_memory":
+            confirmation = input(
+                "Delete ALL your long-term memories? Type YES to confirm: "
+            ).strip()
+
+            if confirmation == "YES":
+                try:
+                    memory_manager.clear_memories(USER_ID)
+                    print("\nAll long-term memories for this user were deleted.")
+                except Exception as error:
+                    print(f"\nCould not clear memories: {error}")
+            else:
+                print("\nDeletion cancelled.")
+
+            continue
+
 
         # ---------------- NORMAL CHAT ----------------
 

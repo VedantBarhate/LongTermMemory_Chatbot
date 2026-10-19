@@ -125,3 +125,6 @@ class MemoryManager:
             memory_id=memory_id,
             user_id=user_id
         )
+
+    def clear_memories(self, user_id):
+        self.store.delete_all_memories(user_id)

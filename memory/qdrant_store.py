@@ -5,7 +5,8 @@ from qdrant_client.models import (
     PointStruct,
     Filter,
     FieldCondition,
-    MatchValue
+    MatchValue,
+    FilterSelector
 )
 import uuid
 from datetime import datetime
@@ -156,3 +157,20 @@ class QdrantMemoryStore:
             points_selector=[memory_id]
         )
         return True
+
+    
+    def delete_all_memories(self, user_id):
+        """Delete all long-term memories belonging to one user."""
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=user_id),
+                        )
+                    ]
+                )
+            ),
+        )
