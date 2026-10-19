@@ -81,3 +81,78 @@ class QdrantMemoryStore:
             )
 
             return results.points
+
+    def update_memory(self, memory_id, memory_text, embedding,
+                      importance=None, confidence=None, memory_type=None,
+                      session_id=None):
+        """Update an existing memory while preserving its ID."""
+        points = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=[memory_id],
+            with_payload=True,
+            with_vectors=False
+        )
+
+        if not points:
+            return False
+
+        payload = dict(points[0].payload or {})
+        payload["memory"] = memory_text
+        payload["updated_at"] = datetime.now().isoformat()
+
+        if importance is not None:
+            payload["importance"] = importance
+        if confidence is not None:
+            payload["confidence"] = confidence
+        if memory_type is not None:
+            payload["memory_type"] = memory_type
+        if session_id is not None:
+            payload["session_id"] = session_id
+
+        self.client.upsert(
+            collection_name=self.collection_name,
+            points=[
+                PointStruct(
+                    id=memory_id,
+                    vector=embedding,
+                    payload=payload
+                )
+            ]
+        )
+        return True
+
+    def list_memories(self, user_id, limit=100):
+        """List stored memories belonging to one user."""
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="user_id",
+                        match=MatchValue(value=user_id)
+                    )
+                ]
+            ),
+            limit=limit,
+            with_payload=True,
+            with_vectors=False
+        )
+        return results
+
+    def delete_memory(self, memory_id, user_id):
+        """Delete a memory only if it belongs to the specified user."""
+        points = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=[memory_id],
+            with_payload=True,
+            with_vectors=False
+        )
+
+        if not points or points[0].payload.get("user_id") != user_id:
+            return False
+
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=[memory_id]
+        )
+        return True
